@@ -161,6 +161,11 @@ local function highlight_definitions()
       fg = pastewin_hl.bg,
       blend = opts.paste_window.winblend or 0,
     },
+    KittyScrollbackNvimStatusWinLineNum = {
+      default = true,
+      fg = normal_hl.bg,
+      bg = normal_hl.fg,
+    }
   }
 end
 

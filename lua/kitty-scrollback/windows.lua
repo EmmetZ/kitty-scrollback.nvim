@@ -22,14 +22,14 @@ end
 
 M.paste_winopts = function(row, col, height_offset)
   local target_height =
-    math.floor(M.size(vim.o.lines, math.floor(M.size(vim.o.lines, (vim.o.lines + 2) / 3))))
+      math.floor(M.size(vim.o.lines, math.floor(M.size(vim.o.lines, (vim.o.lines + 2) / 3))))
   local line_height_diff = vim.o.lines - row - target_height - 5 -- TODO: magic number, 3 for footer and 2 for border
   if line_height_diff < 0 then
     target_height = target_height - math.abs(line_height_diff)
-    if target_height <= 10 + 2 then -- TODO: magic number 2 for border
+    if target_height <= 10 + 2 then               -- TODO: magic number 2 for border
       target_height = M.size(vim.o.lines - 3, 10) -- TODO: magic number, 3 for footer
     end
-    row = vim.o.lines - 5 - target_height -- TODO: magic number, 3 for footer and 2 for border
+    row = vim.o.lines - 5 - target_height         -- TODO: magic number, 3 for footer and 2 for border
   end
   if vim.o.lines <= 5 then
     row = 0
@@ -60,7 +60,7 @@ M.paste_winopts = function(row, col, height_offset)
   local winopts_overrides = opts.paste_window.winopts_overrides
   if winopts_overrides and type(winopts_overrides) == 'function' then
     winopts =
-      vim.tbl_deep_extend('force', winopts, opts.paste_window.winopts_overrides(winopts) or {})
+        vim.tbl_deep_extend('force', winopts, opts.paste_window.winopts_overrides(winopts) or {})
   elseif type(winopts_overrides) == 'table' then
     winopts = vim.tbl_deep_extend('force', winopts, winopts_overrides)
   end
@@ -77,8 +77,8 @@ M.open_paste_window = function(start_insert)
 
   if not p.pos then
     if
-      (opts.kitty_get_text.extent == 'screen' or opts.kitty_get_text.extent == 'all')
-      and not ksb_util.command_line_editing_mode
+        (opts.kitty_get_text.extent == 'screen' or opts.kitty_get_text.extent == 'all')
+        and not ksb_util.command_line_editing_mode
     then
       vim.notify(
         'kitty-scrollback.nvim: missing position with extent=' .. opts.kitty_get_text.extent,
@@ -146,196 +146,216 @@ end
 
 M.show_status_window = function()
   if opts.status_window.enabled then
+    local show_line_numbers = true
+    if opts.status_window.show_line_numbers ~= nil then
+      show_line_numbers = opts.status_window.show_line_numbers
+    end
+
+    local show_icons = true
+    if opts.status_window.show_icons ~= nil then
+      show_icons = opts.status_window.show_icons
+    end
+
+    -- get current window and buffer (calculate line numbers)
+    local target_win = vim.api.nvim_get_current_win()
+    local target_buf = vim.api.nvim_win_get_buf(target_win)
+
     local kitty_icon = opts.status_window.icons.kitty
     local love_icon = opts.status_window.icons.heart
     local nvim_icon = opts.status_window.icons.nvim
-    local width = 9
+
     if opts.status_window.style_simple then
       kitty_icon = 'kitty-scrollback.nvim'
       love_icon = ''
       nvim_icon = ''
-      width = 25
     end
+
+    -- build icon group string in advance
+    -- if show_icons=false, then it's an empty string
+    local icon_group_str = ""
+    if show_icons then
+      icon_group_str = kitty_icon .. ' ' .. love_icon .. ' ' .. nvim_icon .. ' '
+    end
+
     local popup_bufid = vim.api.nvim_create_buf(false, true)
-    local winopts = function()
+
+    local winopts = function(display_width)
       return {
         relative = 'editor',
         zindex = 39,
         style = 'minimal',
         focusable = false,
-        width = M.size(p.orig_columns or vim.o.columns, width),
+        width = M.size(p.orig_columns or vim.o.columns, display_width),
         height = 1,
         row = 0,
         col = vim.o.columns,
         border = 'none',
       }
     end
+
     vim.api.nvim_set_option_value('swapfile', false, { buf = popup_bufid })
+
     local popup_winid = vim.api.nvim_open_win(
       popup_bufid,
       false,
-      vim.tbl_deep_extend('force', winopts(), {
-        noautocmd = true,
-      })
+      vim.tbl_deep_extend('force', winopts(10), { noautocmd = true })
     )
-    vim.api.nvim_set_option_value(
-      'winhighlight',
-      'NormalFloat:KittyScrollbackNvimStatusWinNormal',
-      {
-        win = popup_winid,
-        scope = 'local',
-      }
-    )
+    vim.api.nvim_set_option_value('winhighlight', 'NormalFloat:KittyScrollbackNvimStatusWinNormal',
+      { win = popup_winid, scope = 'local' })
+
+    -- render status function
+    local function render_status(is_loading, spinner_char)
+      if not vim.api.nvim_win_is_valid(popup_winid) then return false end
+
+      -- get line number text
+      local line_text = ""
+      if show_line_numbers and vim.api.nvim_win_is_valid(target_win) and vim.api.nvim_buf_is_valid(target_buf) then
+        local total = vim.api.nvim_buf_line_count(target_buf)
+        local current = vim.api.nvim_win_get_cursor(target_win)[1]
+        local reversed_row = total - current + 1
+        line_text = string.format("[%d/%d]", reversed_row, total)
+      end
+
+      -- build status string: prefix + (spinner + space) + icon group + (line text)
+      local fmt_msg = ""
+      local prefix = " "
+      local spinner_part = ""
+
+      if is_loading then
+        spinner_part = spinner_char .. " "
+      end
+
+      fmt_msg = prefix .. spinner_part .. icon_group_str .. line_text
+
+      -- compute final width
+      local final_width = vim.fn.strdisplaywidth(fmt_msg)
+      if final_width < 1 then final_width = 1 end
+
+      local ok, _ = pcall(vim.api.nvim_win_set_config, popup_winid,
+        vim.tbl_deep_extend('force', winopts(final_width), {}))
+      if not ok then return false end
+
+      vim.api.nvim_buf_set_lines(popup_bufid, 0, -1, false, { fmt_msg })
+
+      -- set highlights using extmarks
+      local nid = vim.api.nvim_create_namespace('scrollbacknvim')
+      vim.api.nvim_buf_clear_namespace(popup_bufid, nid, 0, -1)
+
+      local current_byte_col = #prefix
+
+      -- spinner highlight
+      if is_loading then
+        local end_pos = current_byte_col + #spinner_char
+        local spinner_hl = (spinner_char == '✔') and 'KittyScrollbackNvimStatusWinReadyIcon' or
+            'KittyScrollbackNvimStatusWinSpinnerIcon'
+        vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, current_byte_col, { hl_group = spinner_hl, end_col = end_pos })
+
+        current_byte_col = current_byte_col + #spinner_char + 1 -- 跳过 spinner + 空格
+      end
+
+      -- icon highlights
+      if show_icons and not opts.status_window.style_simple then
+        -- Kitty
+        local end_pos = current_byte_col + #kitty_icon
+        vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, current_byte_col,
+          { hl_group = 'KittyScrollbackNvimStatusWinKittyIcon', end_col = end_pos })
+        current_byte_col = end_pos + 1
+
+        -- Heart
+        end_pos = current_byte_col + #love_icon
+        vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, current_byte_col,
+          { hl_group = 'KittyScrollbackNvimStatusWinHeartIcon', end_col = end_pos })
+        current_byte_col = end_pos + 1
+
+        -- Nvim
+        end_pos = current_byte_col + #nvim_icon
+        vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, current_byte_col,
+          { hl_group = 'KittyScrollbackNvimStatusWinNvimIcon', end_col = end_pos })
+        current_byte_col = end_pos + 1
+      end
+
+      -- line number highlight
+      if line_text ~= "" then
+        local end_pos = current_byte_col + #line_text
+        vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, current_byte_col, {
+          hl_group = 'KittyScrollbackNvimStatusWinLineNum',
+          end_col = end_pos
+        })
+      end
+
+      return true
+    end
+
     local count = 0
     local spinner = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '✔' }
     if opts.status_window.style_simple then
       spinner = { '-', '-', '\\', '\\', '|', '|', '*' }
     end
-    vim.fn.timer_start(
-      80,
-      function(status_window_timer) ---@diagnostic disable-line: redundant-parameter
-        count = count + 1
-        local spinner_icon = count > #spinner and spinner[#spinner] or spinner[count]
-        local fmt_msg = ' '
-          .. spinner_icon
-          .. ' '
-          .. kitty_icon
-          .. ' '
-          .. love_icon
-          .. ' '
-          .. nvim_icon
-          .. ' '
-        vim.defer_fn(function()
-          if spinner_icon == '' then
-            vim.fn.timer_stop(status_window_timer)
-            fmt_msg = ' ' .. kitty_icon .. ' ' .. love_icon .. ' ' .. nvim_icon .. ' '
-            local ok, _ = pcall(vim.api.nvim_win_get_config, popup_winid)
-            if ok then
-              vim.schedule(function()
-                pcall(
-                  vim.api.nvim_win_set_config,
-                  popup_winid,
-                  vim.tbl_deep_extend('force', winopts(), {
-                    width = M.size(p.orig_columns or vim.o.columns, winopts().width - 2),
-                  })
-                )
-              end)
-            end
-          end
-          vim.api.nvim_buf_set_lines(popup_bufid, 0, -1, false, {})
-          vim.api.nvim_buf_set_lines(popup_bufid, 0, -1, false, {
-            fmt_msg,
-          })
 
-          local nid = vim.api.nvim_create_namespace('scrollbacknvim')
-          local startcol = 0
-          local endcol = 0
-          if spinner_icon ~= '' then
-            endcol = #spinner_icon + 2
-            vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, startcol, {
-              hl_group = count >= #spinner and 'KittyScrollbackNvimStatusWinReadyIcon'
-                or 'KittyScrollbackNvimStatusWinSpinnerIcon',
-              end_col = endcol,
-            })
-          end
-          if not opts.status_window.style_simple then
-            startcol = endcol
-            endcol = endcol + #kitty_icon + 1
-            vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, startcol, {
-              hl_group = 'KittyScrollbackNvimStatusWinKittyIcon',
-              end_col = endcol,
-            })
-            startcol = endcol
-            endcol = endcol + #love_icon + 1
-            vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, startcol, {
-              hl_group = 'KittyScrollbackNvimStatusWinHeartIcon',
-              end_col = endcol,
-            })
-            startcol = endcol
-            endcol = #fmt_msg
-            vim.api.nvim_buf_set_extmark(popup_bufid, nid, 0, startcol, {
-              hl_group = 'KittyScrollbackNvimStatusWinNvimIcon',
-              end_col = endcol,
-            })
-          end
+    vim.fn.timer_start(80, function(status_window_timer)
+      count = count + 1
+      local spinner_icon = count > #spinner and spinner[#spinner] or spinner[count]
+
+      vim.defer_fn(function()
+        render_status(true, spinner_icon)
+
+        if count > #spinner then
+          vim.fn.timer_stop(status_window_timer)
+
           if opts.status_window.autoclose then
-            if count > #spinner then
-              vim.fn.timer_start(
-                60,
-                function(close_window_timer) ---@diagnostic disable-line: redundant-parameter
-                  local ok, current_winopts = pcall(vim.api.nvim_win_get_config, popup_winid)
-                  if not ok then
-                    vim.fn.timer_stop(close_window_timer)
-                    vim.fn.timer_stop(status_window_timer)
-                    return
-                  end
-                  if current_winopts.width > 2 then
-                    ok, _ = pcall(
-                      vim.api.nvim_win_set_config,
-                      popup_winid,
-                      vim.tbl_deep_extend('force', winopts(), {
-                        width = M.size(p.orig_columns or vim.o.columns, current_winopts.width - 1),
-                      })
-                    )
-                    if not ok then
-                      vim.fn.timer_stop(close_window_timer)
-                      vim.fn.timer_stop(status_window_timer)
-                      return
-                    end
-                  else
-                    pcall(vim.api.nvim_win_close, popup_winid, true)
-                    vim.fn.timer_stop(close_window_timer)
-                    vim.fn.timer_stop(status_window_timer)
-                  end
-                end,
-                {
-                  ['repeat'] = -1,
-                }
-              )
-            end
+            render_status(false, "")
+            vim.fn.timer_start(60, function(close_window_timer)
+              local ok_cfg, current_winopts = pcall(vim.api.nvim_win_get_config, popup_winid)
+              if not ok_cfg then
+                vim.fn.timer_stop(close_window_timer); return
+              end
+              if current_winopts.width > 2 then
+                pcall(vim.api.nvim_win_set_config, popup_winid,
+                  vim.tbl_deep_extend('force', current_winopts, { width = current_winopts.width - 1 }))
+              else
+                pcall(vim.api.nvim_win_close, popup_winid, true)
+                vim.fn.timer_stop(close_window_timer)
+              end
+            end, { ['repeat'] = -1 })
           else
-            if count > #spinner then
-              local hl_def = vim.api.nvim_get_hl(0, {
-                name = 'KittyScrollbackNvimStatusWinReadyIcon',
-                link = false,
-              })
-              hl_def = next(hl_def) and hl_def or {} -- nvim_get_hl can return vim.empty_dict() so convert to lua table
-              local fg_dec = hl_def.fg or 16777215 -- default to #ffffff
+            if show_icons then
+              local hl_def = vim.api.nvim_get_hl(0, { name = 'KittyScrollbackNvimStatusWinReadyIcon', link = false })
+              hl_def = next(hl_def) and hl_def or {}
+              local fg_dec = hl_def.fg or 16777215
               local fg_hex = string.format('#%06x', fg_dec)
               local darken_hex = ksb_util.darken(fg_hex, 0.7)
-              vim.api.nvim_set_hl(0, 'KittyScrollbackNvimStatusWinReadyIcon', {
-                fg = darken_hex,
+              vim.api.nvim_set_hl(0, 'KittyScrollbackNvimStatusWinReadyIcon', { fg = darken_hex })
+            end
+
+            render_status(false, "")
+
+            -- register autocmd to update line numbers on cursor move
+            -- only if show_line_numbers is true
+            if show_line_numbers then
+              vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+                buffer = target_buf,
+                group = vim.api.nvim_create_augroup('KittyScrollBackStatusUpdate', { clear = true }),
+                callback = function()
+                  if not vim.api.nvim_win_is_valid(popup_winid) then return true end
+                  render_status(false, "")
+                end
               })
-              if count > #spinner + (#spinner / 2) then
-                spinner[#spinner] = ''
-              end
             end
           end
-        end, count > #spinner and 200 or 0)
-      end,
-      {
-        ['repeat'] = -1,
-      }
-    )
+        end
+      end, count > #spinner and 200 or 0)
+    end, { ['repeat'] = -1 })
+
     vim.api.nvim_create_autocmd('WinResized', {
-      group = vim.api.nvim_create_augroup(
-        'KittyScrollBackNvimStatusWindowResized',
-        { clear = true }
-      ),
+      group = vim.api.nvim_create_augroup('KittyScrollBackNvimStatusWindowResized', { clear = true }),
       callback = function()
         p.orig_columns = vim.o.columns
-        local ok, current_winopts = pcall(vim.api.nvim_win_get_config, popup_winid)
-        if not ok then
-          return true
-        end
-        ok, _ = pcall(
-          vim.api.nvim_win_set_config,
-          popup_winid,
-          vim.tbl_deep_extend('force', winopts(), {
-            width = M.size(vim.o.columns, current_winopts.width),
-          })
-        )
-        return not ok
+        local ok_cfg, current_winopts = pcall(vim.api.nvim_win_get_config, popup_winid)
+        if not ok_cfg then return true end
+        pcall(vim.api.nvim_win_set_config, popup_winid, vim.tbl_deep_extend('force', winopts(current_winopts.width), {
+          width = M.size(vim.o.columns, current_winopts.width),
+        }))
+        return false
       end,
     })
   end

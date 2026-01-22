@@ -28,6 +28,8 @@
 ---@field style_simple boolean If true, use plaintext instead of nerd font icons
 ---@field autoclose boolean If true, close the status window after kitty-scrollback.nvim is ready
 ---@field show_timer boolean If true, show a timer in the status window while kitty-scrollback.nvim is loading
+---@field show_icons boolean If true, show icons in the status window
+---@field show_line_numbers boolean If true, show line numbers in the status window
 ---@field icons KsbStatusWindowIcons Icons displayed in the status window, defaults to 󰄛 󰣐 
 
 ---@alias BoolOrFn boolean|fun():boolean
@@ -63,11 +65,14 @@ local default_opts = {
   keymaps_enabled = true,
   restore_options = false,
   highlight_overrides = nil,
+  close_after_yank = false,
   status_window = {
     enabled = true,
     style_simple = false,
     autoclose = false,
     show_timer = false,
+    show_icons = false,
+    show_line_numbers = true,
     icons = {
       kitty = '󰄛',
       heart = '󰣐', -- variants 󰣐 |  |  | ♥ |  | 󱢠 | 
