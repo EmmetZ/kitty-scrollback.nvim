@@ -1,3 +1,25 @@
+# [9.0.0](https://github.com/mikesmithgh/kitty-scrollback.nvim/compare/v8.0.0...v9.0.0) (2026-03-02)
+
+
+* feat!: remove experimental support for tmux ([#350](https://github.com/mikesmithgh/kitty-scrollback.nvim/issues/350)) ([8965508](https://github.com/mikesmithgh/kitty-scrollback.nvim/commit/8965508ac3777e9eb1a4b61e8534cc475ee8e645)), closes [#115](https://github.com/mikesmithgh/kitty-scrollback.nvim/issues/115)
+
+
+### BREAKING CHANGES
+
+* remove experimental support for tmux
+
+# [8.0.0](https://github.com/mikesmithgh/kitty-scrollback.nvim/compare/v7.0.0...v8.0.0) (2026-02-27)
+
+
+* feat!: remove support for Kitty < 0.43.0 ([#348](https://github.com/mikesmithgh/kitty-scrollback.nvim/issues/348)) ([86c6289](https://github.com/mikesmithgh/kitty-scrollback.nvim/commit/86c6289184606d3a7a13bce9669ac66cfa1d1576)), closes [#297](https://github.com/mikesmithgh/kitty-scrollback.nvim/issues/297)
+
+
+### BREAKING CHANGES
+
+* remove support for Kitty versions < 0.43.0
+
+If you are using version 0.32.2 through 0.42.2 of Kitty and cannot upgrade, then you can still use tag v7.0.0 of kitty-scrollback.nvim
+
 # [7.0.0](https://github.com/mikesmithgh/kitty-scrollback.nvim/compare/v6.4.0...v7.0.0) (2026-02-25)
 
 
