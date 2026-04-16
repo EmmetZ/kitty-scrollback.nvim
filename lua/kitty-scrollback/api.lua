@@ -191,7 +191,11 @@ M.generate_command_line_editing = function(shell)
     },
     fish = {
       [[# add the following function and bindings to your fish config]],
-      [[# e.g., ~/.config/fish/conf.d/kitty_scrollback_nvim.fish or ~/.config/fish/config.fish]],
+      [[# recommended location: ~/.config/fish/conf.d/kitty_scrollback_nvim.fish]],
+      [[]],
+      [[if not status is-interactive]],
+      [[    return]],
+      [[end]],
       [[]],
       [[function kitty_scrollback_edit_command_buffer]],
       [[  set --local --export VISUAL ']] .. kitty_scrollback_edit_command_line .. [[']],
@@ -264,7 +268,7 @@ M.checkhealth = function()
     vim.api.nvim_get_runtime_file('python/kitty_scrollback_nvim.py', false)[1],
     ':p'
   )
-  if vim.fn.has('nvim-0.10') > 0 then
+  if vim.fn.has('nvim-0.10') == 1 then
     vim
       .system({
         -- fallback to 'kitty' because checkhealth can be called outside of standard setup flow
