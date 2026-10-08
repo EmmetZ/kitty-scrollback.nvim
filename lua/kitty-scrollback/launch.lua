@@ -363,7 +363,7 @@ M.launch = function()
         if opts.kitty_get_text.extent == 'screen' or opts.kitty_get_text.extent == 'all' then
           set_cursor_position(p.kitty_data)
         end
-        ksb_win.show_status_window()
+        vim.schedule(ksb_win.show_status_window) -- after the scheduled cursor positioning
 
         -- improve buffer name to avoid displaying complex command to user
         local term_buf_name = vim.api.nvim_buf_get_name(p.bufid)

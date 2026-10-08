@@ -25,10 +25,10 @@
 
 ---@class KsbStatusWindowOpts
 ---@field enabled? boolean If true, show status window in upper right corner of the screen
----@field style_simple? boolean If true, use plaintext instead of nerd font icons
+---@field style_simple? boolean If true, use plaintext instead of nerd font icons while loading
 ---@field autoclose? boolean If true, close the status window after kitty-scrollback.nvim is ready
 ---@field show_timer? boolean If true, show a timer in the status window while kitty-scrollback.nvim is loading
----@field icons? KsbStatusWindowIcons Icons displayed in the status window, defaults to 󰄛 󰣐 
+---@field icons? KsbStatusWindowIcons Icons displayed while loading, defaults to 󰄛 󰣐 
 
 ---@alias BoolOrFn boolean|fun():boolean
 ---@alias KsbWinOpts table<string, any>
@@ -52,7 +52,7 @@
 ---@field keymaps_enabled boolean|nil if true, enabled all default keymaps
 ---@field restore_options boolean|nil if true, restore options that were modified while processing the scrollback buffer
 ---@field highlight_overrides KsbHighlights|nil kitty-scrollback.nvim highlight overrides
----@field status_window KsbStatusWindowOpts|nil options for status window indicating that kitty-scrollback.nvim is ready
+---@field status_window KsbStatusWindowOpts|nil options for loading icons and the reverse line counter
 ---@field paste_window KsbPasteWindowOpts|nil  options for paste window that sends commands to Kitty
 ---@field kitty_get_text KsbKittyGetText|nil options passed to get-text when reading scrollback buffer, see `kitty @ get-text --help`
 ---@field checkhealth boolean|nil if true execute :checkhealth kitty-scrollback and skip setup

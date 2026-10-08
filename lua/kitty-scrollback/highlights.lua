@@ -115,8 +115,9 @@ local function highlight_definitions()
     -- status window
     KittyScrollbackNvimStatusWinNormal = {
       default = true,
-      fg = '#968c81',
+      fg = normal_hl.fg,
       bg = normal_hl.bg,
+      bold = true,
     },
     KittyScrollbackNvimStatusWinHeartIcon = {
       default = true,
