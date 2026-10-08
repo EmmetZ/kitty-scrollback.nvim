@@ -380,6 +380,26 @@ The following examples show you how you could reference a kitty-scrollback.nvim 
 | `--nvim-args`    | All arguments after this flag are passed to Neovim. This must be the last of the `kitty_scrollback_nvim` Kitten arguments. Otherwise, you may unintentionally send the wrong arguments to Neovim.        |
 | `--env`          | Environment variable that is passed to Neovim. Format is `--env var_name=var_value`. You may specify multiple config files that will merge all configuration options. Useful for setting `NVIM_APPNAME`. |
 | `--cwd`          | The current working directory of the Neovim                                                                                                                                                              |
+| `--smooth-start` | Keep the source terminal visible while Neovim loads, then reveal the prepared scrollback window. Must appear before `--nvim-args`.                                                                          |
+
+With `--smooth-start`, Neovim loads behind the source window and reports when the
+scrollback content and cursor are ready. The separate loading overlay is skipped;
+a small spinner icon is drawn over the original window while startup is
+pending. It is removed in the same callback that reveals the prepared scrollback,
+so the line counter appears immediately without a timed animation after readiness.
+No text is written into the source terminal and no extra loading process is started.
+This indicator uses Kitty's native title-bar rendering layer (tested on Kitty 0.49.2).
+On releases without that API, smooth-start keeps the original screen and switches
+directly to the counter. The ready status window follows your `status_window` configuration.
+
+```conf
+action_alias kitty_scrollback_nvim kitten /path/to/kitty-scrollback.nvim/python/kitty_scrollback_nvim.py --smooth-start
+```
+
+If startup stops at an error prompt or takes longer than five seconds, the window
+is revealed so that you can inspect it and continue or quit. This mode uses Kitty's
+overlay-ready protocol and input buffering. Neovim 0.12 uses `nvim_ui_send()`;
+older supported Neovim versions write the notification to the terminal directly.
 
 ### Plugin Configuration
 
@@ -580,17 +600,17 @@ The configuration precedence is `default` > `global` > `builtin` > `user` where 
   },
   -- boolean? if true, close kitty-scrollback.nvim after yanking to the clipboard register
   close_after_yank = true,
-  -- KsbStatusWindowOpts? options for status window indicating that kitty-scrollback.nvim is ready
+  -- KsbStatusWindowOpts? options for loading icons and the reverse line counter
   status_window = {
     -- boolean If true, show status window in upper right corner of the screen
     enabled = true,
-    -- boolean If true, use plaintext instead of nerd font icons
+    -- boolean If true, use plaintext instead of nerd font icons while loading
     style_simple = false,
     -- boolean If true, close the status window after kitty-scrollback.nvim is ready
     autoclose = false,
     -- boolean If true, show a timer in the status window while kitty-scrollback.nvim is loading
     show_timer = false,
-    -- KsbStatusWindowIcons? Icons displayed in the status window
+    -- KsbStatusWindowIcons? Icons displayed while loading
     icons = {
       -- string kitty status window icon
       kitty = '󰄛',
@@ -641,9 +661,28 @@ The configuration precedence is `default` > `global` > `builtin` > `user` where 
 }
 ```
 
+### Scrollback Position
+
+After loading, the upper-right status window displays `[current/total]` using reverse
+buffer line numbers. For example, in a 100-line scrollback, the bottom line shows
+`[1/100]`, the line above shows `[2/100]`, and the first line shows `[100/100]`.
+The total includes blank buffer lines; long lines count as one imported buffer line.
+The counter follows the cursor in the focused scrollback split and retains that
+position while editing in the paste window. Once the content and cursor are ready,
+the counter appears immediately and updates only on cursor/window events.
+In normal startup, loading icons are shown while loading and disappear when ready;
+their existing configuration is preserved. There is no timed animation after readiness.
+Set `status_window.enabled = false` to hide both loading status and the counter,
+or `status_window.autoclose = true` to close the counter one second after it opens.
+With `--smooth-start`, the original terminal stays visible with a small native
+loading indicator, then switches directly to the prepared scrollback and counter.
+The indicator is cleared on readiness, window closure, or the five-second fallback.
+Disabling status or choosing ASCII mode takes effect once the Neovim configuration
+has loaded; the initial indicator uses the default style before that configuration is known.
+
 ### Nerd Fonts 
 
-By default, `kitty-scrollback.nvim` uses [Nerd Fonts](https://www.nerdfonts.com) in the status window. If you would like to 
+By default, `kitty-scrollback.nvim` uses [Nerd Fonts](https://www.nerdfonts.com) in the loading status window. If you would like to
 use ASCII instead, set the option `status_window.style_simple` to `true`.
 
 <!-- panvimdoc-ignore-start -->
@@ -1093,4 +1132,3 @@ bindkey '^x^e' kitty_scrollback_edit_command_line
 </div>
 
 <!-- panvimdoc-ignore-end -->
-
