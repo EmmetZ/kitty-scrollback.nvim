@@ -143,6 +143,13 @@ def handle_result(args: List[str],
                   target_window_id: int,
                   boss: Boss) -> None:
     del args[0]
+    # Only parse kitten arguments before --nvim-args.
+    kitten_arg_end = args.index('--nvim-args') if '--nvim-args' in args else len(args)
+    smooth_start = '--smooth-start' in args[:kitten_arg_end]
+    if smooth_start:
+        args.remove('--smooth-start')
+        from kitty.fast_data_types import (set_redirect_keys_to_overlay,
+                                          buffer_keys_in_window, add_timer)
     w = boss.window_id_map.get(target_window_id)
     if w is not None:
         kitty_path = which('kitty')
@@ -160,6 +167,7 @@ def handle_result(args: List[str],
                                    target_window_id,
                                    config,
                                    kitty_path)
+        kitty_data_str['kitty_overlay_behind'] = smooth_start
         kitty_data = json.dumps(kitty_data_str)
 
         if w.title.startswith('kitty-scrollback.nvim'):
@@ -178,7 +186,11 @@ def handle_result(args: List[str],
             '--title',
             'kitty-scrollback.nvim',
         ) + env + cwd
+        if smooth_start:
+            kitty_args += ('--keep-focus', '--env',
+                           'KITTY_SCROLLBACK_NVIM_SMOOTH_START=true')
 
+        # Prefer this launcher's Lua modules over another installed copy.
         nvim_args = parse_nvim_args(args) + (
             '--cmd',
             ' lua'
@@ -186,7 +198,7 @@ def handle_result(args: List[str],
             '  group = vim.api.nvim_create_augroup([[KittyScrollBackNvimVimEnter]], { clear = true }),'
             '  pattern = [[*]],'
             '  callback = function()'
-            f'  vim.opt.runtimepath:append([[{ksb_dir}]])'
+            f'  vim.opt.runtimepath:prepend([[{ksb_dir}]])'
             '   vim.api.nvim_exec_autocmds([[User]], { pattern = [[KittyScrollbackLaunch]], modeline = false })'
             f'  require([[kitty-scrollback.launch]]).setup_and_launch([[{kitty_data}]])'
             ' end,'
@@ -200,6 +212,28 @@ def handle_result(args: List[str],
             return
 
         cmd = ('launch', ) + kitty_args + (nvim_path, ) + nvim_args
-        boss.call_remote_control(w, cmd)
+        overlay_id = boss.call_remote_control(w, cmd)
+        if smooth_start:
+            overlay_id = int(overlay_id)
+            overlay = boss.window_id_map[overlay_id]
+            # Keep the source visible, buffering input until Neovim reports ready.
+            set_redirect_keys_to_overlay(w.os_window_id, w.tab_id, w.id,
+                                         overlay.id)
+            buffer_keys_in_window(w.os_window_id, w.tab_id, overlay.id, True)
+            overlay.keys_redirected_till_ready_from = w.id
+
+            # Render only a small status layer; never write into the source buffer.
+            from runpy import run_path
+            run_path(os.path.join(ksb_dir, 'python', 'smooth_loading.py'))['start'](
+                w, overlay, boss)
+
+            # Startup error prompts can block Neovim before its timers run.
+            # Reveal after five seconds so an error or hung startup stays usable.
+            def reveal_if_still_pending(timer_id):
+                pending = boss.window_id_map.get(overlay_id)
+                if pending is not None and pending.keys_redirected_till_ready_from:
+                    pending.handle_overlay_ready(memoryview(b''))
+
+            add_timer(reveal_if_still_pending, 5.0, False)
     else:
         raise Exception(f'Failed to get window with id: {target_window_id}')

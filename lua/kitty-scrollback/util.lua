@@ -91,6 +91,7 @@ M.clear_yank_autocommand_and_get_visual_selection = function()
 end
 
 M.quitall = function()
+  require('kitty-scrollback.overlay').show()
   if vim.fn.getcmdwintype() == '' then
     vim.cmd('quitall!') -- prefer vim.cmd('quitall') over vim.cmd.quitall to support older versions of neovim
   else
@@ -142,6 +143,7 @@ M.display_error = function(msg)
   local prompt_msg = 'kitty-scrollback.nvim: Fatal error, see logs.'
   vim.api.nvim_buf_set_lines(error_bufid, 0, -1, false, vim.list_extend(error_header, msg))
   M.restore_and_redraw()
+  require('kitty-scrollback.overlay').show()
   local response = vim.fn.confirm(prompt_msg, '&Quit\n&Continue')
   if response ~= 2 then
     M.quitall()
@@ -219,6 +221,7 @@ M.display_cmd_error = function(cmd, r, header)
   end
   vim.api.nvim_buf_set_lines(error_bufid, 0, -1, false, vim.list_extend(msg, err))
   M.restore_and_redraw()
+  require('kitty-scrollback.overlay').show()
   local response = vim.fn.confirm(prompt_msg, '&Quit\n&Continue')
   if response ~= 2 then
     M.quitall()

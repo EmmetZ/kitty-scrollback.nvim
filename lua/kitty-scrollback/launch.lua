@@ -47,6 +47,7 @@ local M = {}
 ---@field kitty_version table kitty version
 ---@field kitty_path string kitty executable path
 ---@field shell string kitty shell program to execute
+---@field kitty_overlay_behind boolean|nil keep the source visible until the overlay is ready
 
 ---@class KsbPrivate
 ---@field orig_columns number
@@ -263,9 +264,11 @@ M.setup = function(kitty_data_str)
   if opts.checkhealth then
     vim.o.foldenable = false
     vim.cmd('checkhealth kitty-scrollback') -- prefer vim.cmd('checkhealth') over vim.cmd.checkhealth to support older versions of neovim
+    vim.schedule(require('kitty-scrollback.overlay').show)
     return
   end
   if vim.fn.has(ksb_health.supported_nvim_version) == 0 then
+    require('kitty-scrollback.overlay').show()
     ksb_health.display_version_error()
     ksb_util.quitall()
   end
@@ -275,6 +278,7 @@ M.setup = function(kitty_data_str)
       .. '.\n\n'
       .. table.concat(ksb_health.advice.kitty_version, '\n')
       .. '\n'
+    require('kitty-scrollback.overlay').show()
     vim.fn.confirm(prompt_msg, '&Quit')
     ksb_util.quitall()
   end
@@ -446,6 +450,12 @@ M.launch = function()
         ksb_api.close_kitty_loading_window()
         if block_input_timer then
           vim.fn.timer_stop(block_input_timer)
+        end
+        if p.kitty_data.kitty_overlay_behind then
+          vim.schedule(function()
+            ksb_util.restore_and_redraw()
+            require('kitty-scrollback.overlay').show()
+          end)
         end
       end)
     end)

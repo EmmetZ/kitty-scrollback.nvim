@@ -283,6 +283,19 @@ M.signal_winchanged_to_kitty_child_process = function()
 end
 
 M.open_kitty_loading_window = function(env)
+  if p.kitty_data.kitty_overlay_behind then
+    if not opts.status_window.enabled or opts.status_window.style_simple then
+      ksb_util.system_handle_error({
+        p.kitty_data.kitty_path,
+        '@',
+        'kitten',
+        '--match=id:' .. vim.env.KITTY_WINDOW_ID,
+        p.kitty_data.ksb_dir .. '/python/smooth_loading.py',
+        not opts.status_window.enabled and '--disabled' or '--simple',
+      }, error_header)
+    end
+    return
+  end
   if p.kitty_loading_proc then
     M.close_kitty_loading_window(true)
   end
