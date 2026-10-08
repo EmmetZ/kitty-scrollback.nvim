@@ -48,8 +48,8 @@ M.paste_winopts = function(row, col, height_offset)
   if col then
     winopts.col = col
     winopts.width = M.size(vim.o.columns, vim.o.columns - col)
-    if winopts.width < 0 then
-      -- current line is larger than window, put window below current line
+    if winopts.width <= 0 then
+      -- No room to the right of the cursor; put the window below the current line.
       vim.fn.setcursorcharpos({ vim.fn.line('.'), 0 })
       ksb_util.restore_and_redraw()
       winopts.width = vim.o.columns - 1

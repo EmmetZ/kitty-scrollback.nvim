@@ -112,7 +112,9 @@ local function set_options()
   }
 
   -- required opts
-  vim.o.virtualedit = 'all' -- all or onemore for correct position
+  -- Keep the terminal's end-of-line cursor without allowing unbounded movement.
+  -- set_cursor_position temporarily enables all virtual columns for positioning.
+  vim.o.virtualedit = 'onemore'
   vim.o.termguicolors = true
 
   -- preferred optional opts
