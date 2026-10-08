@@ -149,8 +149,8 @@ local set_cursor_position = vim.schedule_wrap(function(d)
   local scrolled_by = d.scrolled_by
   local lines = d.lines - tab_offset
   if vim.fn.has('nvim-0.12') == 1 then
-    -- nvim 0.12 introduced virtual text for the [Process exited] message which changes the cursor position by 1 line
-    lines = lines - 1
+    -- Neither the legacy exit-message line nor a final import LF is present.
+    lines = lines - 2
   end
   if y < 0 then
     -- adjust when on first line of terminal

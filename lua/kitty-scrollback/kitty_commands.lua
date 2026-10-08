@@ -29,16 +29,19 @@ local function get_scrollback_cmd(get_text_args)
     p.kitty_data.window_id,
     get_text_args.kitty
   )
-  local sed_cmd = [[sed -E ]]
-    .. [[-e 's/\r//g' ]] -- added to remove /r added by --add-wrap-markers, (--add-wrap-markers is used to add empty lines at end of screen)
-    .. [[-e 's/$/\x1b[0m/g']] -- append all lines with reset to avoid unintended colors
+  local line_filter_cmd = [[sed -E ]]
+    .. [[-e 's/\r//g' ]] -- remove wrap markers while preserving blank screen lines
+    .. [[-e 's/$/\x1b[0m/g']] -- reset colors at each line
+  if vim.fn.has('nvim-0.12') == 1 then
+    -- Emit separators between lines, preserving blank lines without a final LF.
+    line_filter_cmd = [[awk '{gsub(/\r/, ""); printf "%s%s\033[0m", NR == 1 ? "" : "\n", $0}']]
+  end
   local flush_stdout_cmd = p.kitty_data.kitty_path .. [[ +runpy 'sys.stdout.flush()']]
-  local full_cmd = scrollback_cmd .. ' | ' .. sed_cmd .. ' && ' .. flush_stdout_cmd
+  local full_cmd = scrollback_cmd .. ' | ' .. line_filter_cmd .. ' && ' .. flush_stdout_cmd
   if vim.fn.has('nvim-0.12') == 0 then
-    -- workaround to remove [Process exited] message in prior versions of nvim
-    -- start to set title but do not complete see https://github.com/kovidgoyal/kitty/issues/719#issuecomment-952039731
-    local start_set_title_cmd = 'printf "\x1b]2;"'
-    full_cmd = full_cmd .. ' && ' .. start_set_title_cmd
+    -- Start an unfinished title to suppress the legacy process exit message.
+    -- See https://github.com/kovidgoyal/kitty/issues/719#issuecomment-952039731
+    full_cmd = full_cmd .. ' && printf "\x1b]2;"'
   end
 
   return scrollback_cmd, full_cmd
@@ -121,6 +124,11 @@ M.get_text_term = function(get_text_opts, on_exit_cb)
               stderr = stderr and table.concat(stderr, '\n') or nil,
             }, error_header)
           end
+        end
+        -- Neovim 0.12 displays the exit message as virtual text.
+        local exitmsg_ns = vim.api.nvim_get_namespaces()['nvim.terminal.exitmsg']
+        if exitmsg_ns then
+          vim.api.nvim_buf_clear_namespace(p.bufid, exitmsg_ns, 0, -1)
         end
         on_exit_cb(id, exit_code, event)
       else
